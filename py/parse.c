@@ -574,7 +574,7 @@ mp_parse_node_t mp_parse(mp_lexer_t *lex, mp_parse_input_kind_t input_kind) {
 #endif
 
                 // always emit these rules, even if they have only 1 argument
-                if (rule->rule_id == RULE_expr_stmt || rule->rule_id == RULE_yield_stmt) {
+                if (rule->rule_id == RULE_expr_stmt || rule->rule_id == RULE_await_stmt || rule->rule_id == RULE_yield_stmt) {
                     emit_rule = true;
                 }
 
