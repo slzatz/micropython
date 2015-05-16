@@ -385,7 +385,11 @@ STATIC const mp_map_elem_t os_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_listdir), (mp_obj_t)&os_listdir_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_mkdir), (mp_obj_t)&os_mkdir_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_remove), (mp_obj_t)&os_remove_obj },
+<<<<<<< HEAD
     { MP_OBJ_NEW_QSTR(MP_QSTR_rename),(mp_obj_t)&os_rename_obj},
+=======
+    { MP_OBJ_NEW_QSTR(MP_QSTR_rename),(mp_obj_t)&mod_os_rename_obj},
+>>>>>>> 615c9d4cfb8b40ecd57216a98af2c82928d596fc
     { MP_OBJ_NEW_QSTR(MP_QSTR_rmdir), (mp_obj_t)&os_rmdir_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_stat), (mp_obj_t)&os_stat_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_unlink), (mp_obj_t)&os_remove_obj }, // unlink aliases to remove
