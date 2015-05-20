@@ -8,7 +8,7 @@
 [istats-issue-img]: http://issuestats.com/github/micropython/micropython/badge/issue
 [istats-issue-repo]: http://issuestats.com/github/micropython/micropython
 
-The Micro Python project
+The Micro Python project - test_branch
 ========================
 <p align="center">
   <img src="https://raw.githubusercontent.com/micropython/micropython/master/logo/upython-with-micro.jpg" alt="MicroPython Logo"/>
