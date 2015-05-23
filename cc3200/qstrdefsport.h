@@ -74,6 +74,7 @@ Q(binascii)
 Q(re)
 Q(json)
 Q(heapq)
+Q(hashlib)
 
 // for os module
 Q(uos)
@@ -232,7 +233,6 @@ Q(IPPROTO_RAW)
 
 // for network class
 Q(network)
-Q(route)
 Q(start_server)
 Q(stop_server)
 Q(server_running)
@@ -350,11 +350,15 @@ Q(POSITIVE)
 Q(NEGATIVE)
 
 // for uhashlib module
-Q(hashlib)
 Q(uhashlib)
 Q(update)
 Q(digest)
-Q(hexdigest)
 //Q(md5)
 Q(sha1)
 Q(sha256)
+
+// for ubinascii module
+Q(ubinascii)
+Q(hexlify)
+Q(unhexlify)
+
