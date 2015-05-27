@@ -152,6 +152,7 @@ SRC_C = \
 	servo.c \
 	dac.c \
 	adc.c \
+        hello.c \
 
 SRC_S = \
 	startup_stm32f40xx.s \
