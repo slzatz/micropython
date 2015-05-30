@@ -135,9 +135,11 @@ extern const struct _mp_obj_fun_builtin_t mp_builtin_open_obj;
 
 extern const struct _mp_obj_module_t mp_module_os;
 extern const struct _mp_obj_module_t mp_module_time;
+extern const struct _mp_obj_module_t mp_module_hello;
 #define MICROPY_PORT_BUILTIN_MODULES \
     { MP_OBJ_NEW_QSTR(MP_QSTR_time), (mp_obj_t)&mp_module_time }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR__os), (mp_obj_t)&mp_module_os }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_hello), (mp_obj_t)&mp_module_hello }, \
 
 // We need to provide a declaration/definition of alloca()
 #include <malloc.h>

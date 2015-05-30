@@ -39,6 +39,9 @@ Q(stat)
 Q(system)
 Q(unlink)
 
+Q(hello)
+Q(who)
+
 Q(ffi)
 Q(ffimod)
 Q(ffifunc)

@@ -117,6 +117,7 @@ extern const struct _mp_obj_module_t mp_module_time;
 extern const struct _mp_obj_module_t mp_module_termios;
 extern const struct _mp_obj_module_t mp_module_socket;
 extern const struct _mp_obj_module_t mp_module_ffi;
+extern const struct _mp_obj_module_t mp_module_hello;
 
 #if MICROPY_PY_FFI
 #define MICROPY_PY_FFI_DEF { MP_OBJ_NEW_QSTR(MP_QSTR_ffi), (mp_obj_t)&mp_module_ffi },
@@ -144,6 +145,7 @@ extern const struct _mp_obj_module_t mp_module_ffi;
     MICROPY_PY_TIME_DEF \
     MICROPY_PY_SOCKET_DEF \
     { MP_OBJ_NEW_QSTR(MP_QSTR__os), (mp_obj_t)&mp_module_os }, \
+    { MP_OBJ_NEW_QSTR(MP_QSTR_hello), (mp_obj_t)&mp_module_hello }, \ 
     MICROPY_PY_TERMIOS_DEF \
 
 // type definitions for the specific machine
@@ -182,8 +184,7 @@ extern const struct _mp_obj_fun_builtin_t mp_builtin_input_obj;
 extern const struct _mp_obj_fun_builtin_t mp_builtin_open_obj;
 #define MICROPY_PORT_BUILTINS \
     { MP_OBJ_NEW_QSTR(MP_QSTR_input), (mp_obj_t)&mp_builtin_input_obj }, \
-    { MP_OBJ_NEW_QSTR(MP_QSTR_open), (mp_obj_t)&mp_builtin_open_obj },
-
+    { MP_OBJ_NEW_QSTR(MP_QSTR_open), (mp_obj_t)&mp_builtin_open_obj }, \
 #define MICROPY_PORT_ROOT_POINTERS \
     mp_obj_t keyboard_interrupt_obj; \
     void *mmap_region_head; \
