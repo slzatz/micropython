@@ -227,11 +227,11 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent) {
         }
             break;
         case SL_WLAN_DISCONNECT_EVENT:
-        {
             CLR_STATUS_BIT(wlan_obj.status, STATUS_BIT_CONNECTION);
             CLR_STATUS_BIT(wlan_obj.status, STATUS_BIT_IP_ACQUIRED);
-            // TODO reset the servers
-        }
+        #if (MICROPY_PORT_HAS_TELNET || MICROPY_PORT_HAS_FTP)
+            servers_reset();
+        #endif
             break;
         case SL_WLAN_STA_CONNECTED_EVENT:
         {
@@ -245,7 +245,9 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pWlanEvent) {
             break;
         case SL_WLAN_STA_DISCONNECTED_EVENT:
             wlan_obj.staconnected = false;
-            // TODO reset the servers
+        #if (MICROPY_PORT_HAS_TELNET || MICROPY_PORT_HAS_FTP)
+            servers_reset();
+        #endif
             break;
         case SL_WLAN_P2P_DEV_FOUND_EVENT:
             // TODO
@@ -597,14 +599,15 @@ STATIC modwlan_Status_t wlan_do_connect (const char* ssid, uint32_t ssid_len, co
     secParams.Type = sec;
 
     if (0 == sl_WlanConnect((_i8*)ssid, ssid_len, (_u8*)bssid, &secParams, NULL)) {
-        // Wait for the WLAN Event
+        // wait for the WLAN Event
         uint32_t waitForConnectionMs = 0;
         while (!IS_CONNECTED(wlan_obj.status)) {
             HAL_Delay (5);
-            wlan_update();
-            if (++waitForConnectionMs >= timeout) {
+            waitForConnectionMs += 5;
+            if (waitForConnectionMs > timeout) {
                 return MODWLAN_ERROR_TIMEOUT;
             }
+            wlan_update();
         }
         return MODWLAN_OK;
     }
@@ -622,9 +625,9 @@ STATIC bool wlan_is_connected (void) {
              GET_STATUS_BIT(wlan_obj.status, STATUS_BIT_IP_ACQUIRED)) || wlan_obj.staconnected);
 }
 
-/// \method init(mode, ssid=myWlan, security=wlan.WPA_WPA2, key=myWlanKey)
+/// \method init(mode, ssid=None, *, security=wlan.OPEN, key=None, channel=5)
 ///
-/// Initialise the UART bus with the given parameters:
+/// Initialise the WLAN engine with the given parameters:
 ///
 ///   - `mode` can be ROLE_AP, ROLE_STA and ROLE_P2P.
 ///   - `ssid` is the network ssid in case of AP mode
@@ -633,7 +636,7 @@ STATIC bool wlan_is_connected (void) {
 ///   - `channel` is the channel to use for the AP network
 STATIC const mp_arg_t wlan_init_args[] = {
     { MP_QSTR_mode,         MP_ARG_REQUIRED | MP_ARG_INT,  {.u_int = ROLE_STA} },
-    { MP_QSTR_ssid,         MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
+    { MP_QSTR_ssid,                           MP_ARG_OBJ,  {.u_obj = mp_const_none} },
     { MP_QSTR_security,     MP_ARG_KW_ONLY  | MP_ARG_INT,  {.u_int = SL_SEC_TYPE_OPEN} },
     { MP_QSTR_key,          MP_ARG_KW_ONLY  | MP_ARG_OBJ,  {.u_obj = mp_const_none} },
     { MP_QSTR_channel,      MP_ARG_KW_ONLY  | MP_ARG_INT,  {.u_int = 5} },
@@ -656,8 +659,9 @@ STATIC mp_obj_t wlan_init_helper(mp_uint_t n_args, const mp_obj_t *pos_args, mp_
         nlr_raise(mp_obj_new_exception_msg(&mp_type_ValueError, mpexception_value_invalid_arguments));
     }
 
-    // Force the channel to be between 1-11
-    uint8_t channel = args[4].u_int > 0 ? args[4].u_int % 12 : 1;
+    // force the channel to be between 1-11
+    uint8_t channel = args[4].u_int;
+    channel = (channel > 0 && channel != 12) ? channel % 12 : 1;
 
     if (MODWLAN_OK != wlan_sl_enable (args[0].u_int, ssid, ssid_len, args[2].u_int, key, key_len, channel)) {
         nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, mpexception_os_operation_failed));
@@ -699,7 +703,7 @@ STATIC mp_obj_t wlan_make_new (mp_obj_t type_in, mp_uint_t n_args, mp_uint_t n_k
     mp_arg_check_num(n_args, n_kw, 0, MP_ARRAY_SIZE(wlan_init_args), true);
 
     if (n_args > 0) {
-        // Get the mode
+        // get the mode
         SlWlanMode_t mode = mp_obj_get_int(args[0]);
         if (mode == ROLE_AP) {
             // start the peripheral
@@ -707,7 +711,7 @@ STATIC mp_obj_t wlan_make_new (mp_obj_t type_in, mp_uint_t n_args, mp_uint_t n_k
             mp_map_init_fixed_table(&kw_args, n_kw, args + n_args);
             wlan_init_helper(n_args, args, &kw_args);
         }
-        // TODO: Only STA mode supported for the moment. What if P2P?
+        // TODO only STA mode supported for the moment. What if P2P?
         else if (n_args == 1) {
             if (MODWLAN_OK != wlan_sl_enable (mode, NULL, 0, 0, NULL, 0, 0)) {
                 nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, mpexception_os_operation_failed));
@@ -716,24 +720,21 @@ STATIC mp_obj_t wlan_make_new (mp_obj_t type_in, mp_uint_t n_args, mp_uint_t n_k
         else {
             nlr_raise(mp_obj_new_exception_msg(&mp_type_TypeError, mpexception_num_type_invalid_arguments));
         }
-    } else if (wlan_obj.mode < 0) {
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_TypeError, mpexception_num_type_invalid_arguments));
     }
 
     wlan_obj.base.type = (mp_obj_type_t*)&mod_network_nic_type_wlan;
-
     return &wlan_obj;
 }
 
-/// \method connect(ssid, security=OPEN, key=None, bssid=None)
+/// \method connect(ssid, *, security=OPEN, key=None, bssid=None, timeout=5000)
 //          if security is WPA/WPA2, the key must be a string
 ///         if security is WEP, the key must be binary
 STATIC mp_obj_t wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args) {
     STATIC const mp_arg_t allowed_args[] = {
-        { MP_QSTR_ssid,     MP_ARG_REQUIRED | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_ssid,     MP_ARG_REQUIRED | MP_ARG_OBJ, },
         { MP_QSTR_security, MP_ARG_KW_ONLY  | MP_ARG_INT, {.u_int = SL_SEC_TYPE_OPEN} },
-        { MP_QSTR_key,      MP_ARG_KW_ONLY  | MP_ARG_OBJ, {.u_obj = mp_const_none} },
-        { MP_QSTR_bssid,    MP_ARG_KW_ONLY  | MP_ARG_OBJ, {.u_obj = mp_const_none} },
+        { MP_QSTR_key,      MP_ARG_KW_ONLY  | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
+        { MP_QSTR_bssid,    MP_ARG_KW_ONLY  | MP_ARG_OBJ, {.u_obj = MP_OBJ_NULL} },
         { MP_QSTR_timeout,  MP_ARG_KW_ONLY  | MP_ARG_INT, {.u_int = MODWLAN_TIMEOUT_MS} },
     };
 
@@ -757,21 +758,21 @@ STATIC mp_obj_t wlan_connect(mp_uint_t n_args, const mp_obj_t *pos_args, mp_map_
     mp_uint_t key_len = 0;
     const char *key = NULL;
     mp_buffer_info_t wepkey;
-    if (args[2].u_obj != mp_const_none) {
+    mp_obj_t key_o = args[2].u_obj;
+    if (key_o != MP_OBJ_NULL) {
         // wep key must be given as raw bytes
         if (sec == SL_SEC_TYPE_WEP) {
-            mp_get_buffer_raise(args[2].u_obj, &wepkey, MP_BUFFER_READ);
+            mp_get_buffer_raise(key_o, &wepkey, MP_BUFFER_READ);
             key = wepkey.buf;
             key_len = wepkey.len;
-        }
-        else {
-            key = mp_obj_str_get_data(args[2].u_obj, &key_len);
+        } else {
+            key = mp_obj_str_get_data(key_o, &key_len);
         }
     }
 
     // get bssid
     const char *bssid = NULL;
-    if (args[3].u_obj != mp_const_none) {
+    if (args[3].u_obj != MP_OBJ_NULL) {
         bssid = mp_obj_str_get_str(args[3].u_obj);
     }
 
@@ -1003,15 +1004,20 @@ STATIC mp_obj_t wlan_callback (mp_uint_t n_args, const mp_obj_t *pos_args, mp_ma
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(wlan_callback_obj, 1, wlan_callback);
 
 /// \method info()
-/// returns (mode, security, ssid/name, mac)
+/// returns (mode, ssid, security, mac)
 STATIC mp_obj_t wlan_info (mp_obj_t self_in) {
-    mp_obj_t info[4];
-    info[0] = mp_obj_new_int(wlan_obj.mode);
-    info[1] = mp_obj_new_int(wlan_obj.security);
-    info[2] = wlan_obj.mode != ROLE_STA ?
+    STATIC const qstr wlan_info_fields[] = {
+        MP_QSTR_mode, MP_QSTR_ssid,
+        MP_QSTR_security, MP_QSTR_mac
+    };
+
+    mp_obj_t wlan_info[4];
+    wlan_info[0] = mp_obj_new_int(wlan_obj.mode);
+    wlan_info[1] = wlan_obj.mode != ROLE_STA ?
               mp_obj_new_str((const char *)wlan_obj.ssid, strlen((const char *)wlan_obj.ssid), false) : MP_OBJ_NEW_QSTR(MP_QSTR_);
-    info[3] = mp_obj_new_bytes((const byte *)wlan_obj.mac, SL_BSSID_LENGTH);
-    return mp_obj_new_tuple(MP_ARRAY_SIZE(info), info);
+    wlan_info[2] = mp_obj_new_int(wlan_obj.security);
+    wlan_info[3] = mp_obj_new_bytes((const byte *)wlan_obj.mac, SL_BSSID_LENGTH);
+    return mp_obj_new_attrtuple(wlan_info_fields, MP_ARRAY_SIZE(wlan_info), wlan_info);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(wlan_info_obj, wlan_info);
 
@@ -1057,6 +1063,15 @@ STATIC const mp_map_elem_t wlan_locals_dict_table[] = {
 };
 STATIC MP_DEFINE_CONST_DICT(wlan_locals_dict, wlan_locals_dict_table);
 
+const mod_network_nic_type_t mod_network_nic_type_wlan = {
+    .base = {
+        { &mp_type_type },
+        .name = MP_QSTR_WLAN,
+        .make_new = wlan_make_new,
+        .locals_dict = (mp_obj_t)&wlan_locals_dict,
+    },
+};
+
 STATIC const mp_cb_methods_t wlan_cb_methods = {
     .init = wlan_callback,
     .enable = wlan_lpds_callback_enable,
@@ -1066,7 +1081,7 @@ STATIC const mp_cb_methods_t wlan_cb_methods = {
 /******************************************************************************/
 // Micro Python bindings; WLAN socket
 
-STATIC int wlan_gethostbyname(const char *name, mp_uint_t len, uint8_t *out_ip, uint8_t family) {
+int wlan_gethostbyname(const char *name, mp_uint_t len, uint8_t *out_ip, uint8_t family) {
     uint32_t ip;
     int result = sl_NetAppDnsGetHostByName((_i8 *)name, (_u16)len, (_u32*)&ip, (_u8)family);
 
@@ -1078,29 +1093,32 @@ STATIC int wlan_gethostbyname(const char *name, mp_uint_t len, uint8_t *out_ip, 
     return result;
 }
 
-STATIC int wlan_socket_socket(struct _mod_network_socket_obj_t *s, int *_errno) {
+int wlan_socket_socket(mod_network_socket_obj_t *s, int *_errno) {
     // open the socket
     int16_t sd = sl_Socket(s->u_param.domain, s->u_param.type, s->u_param.proto);
-    if (s->sd < 0) {
-        *_errno = s->sd;
+    // save the socket descriptor
+    s->sd = sd;
+    if (sd < 0) {
+        *_errno = sd;
         return -1;
     }
 
     // mark the socket not closed
     s->closed = false;
-    // save the socket descriptor
-    s->sd = sd;
 
     return 0;
 }
 
-STATIC void wlan_socket_close(mod_network_socket_obj_t *s) {
-    modusocket_socket_delete(s->sd);
+void wlan_socket_close(mod_network_socket_obj_t *s) {
+    // this is to prevent the finalizer to close a socket that failed when being created
+    if (s->sd >= 0) {
+        modusocket_socket_delete(s->sd);
+        sl_Close(s->sd);
+    }
     s->closed = true;
-    sl_Close(s->sd);
 }
 
-STATIC int wlan_socket_bind(mod_network_socket_obj_t *s, byte *ip, mp_uint_t port, int *_errno) {
+int wlan_socket_bind(mod_network_socket_obj_t *s, byte *ip, mp_uint_t port, int *_errno) {
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_Bind(s->sd, &addr, sizeof(addr));
     if (ret != 0) {
@@ -1110,7 +1128,7 @@ STATIC int wlan_socket_bind(mod_network_socket_obj_t *s, byte *ip, mp_uint_t por
     return 0;
 }
 
-STATIC int wlan_socket_listen(mod_network_socket_obj_t *s, mp_int_t backlog, int *_errno) {
+int wlan_socket_listen(mod_network_socket_obj_t *s, mp_int_t backlog, int *_errno) {
     int ret = sl_Listen(s->sd, backlog);
     if (ret != 0) {
         *_errno = ret;
@@ -1119,19 +1137,22 @@ STATIC int wlan_socket_listen(mod_network_socket_obj_t *s, mp_int_t backlog, int
     return 0;
 }
 
-STATIC int wlan_socket_accept(mod_network_socket_obj_t *s, mod_network_socket_obj_t *s2, byte *ip, mp_uint_t *port, int *_errno) {
+int wlan_socket_accept(mod_network_socket_obj_t *s, mod_network_socket_obj_t *s2, byte *ip, mp_uint_t *port, int *_errno) {
     // accept incoming connection
     int16_t sd;
     sockaddr addr;
     socklen_t addr_len = sizeof(addr);
-    if ((sd = sl_Accept(s->sd, &addr, &addr_len)) < 0) {
+
+    sd = sl_Accept(s->sd, &addr, &addr_len);
+    // save the socket descriptor
+    s2->sd = sd;
+    if (sd < 0) {
         *_errno = sd;
         return -1;
     }
 
-    // Mark the socket not closed and save the new descriptor
+    // mark the socket not closed
     s2->closed = false;
-    s2->sd = sd;
 
     // return ip and port
     UNPACK_SOCKADDR(addr, ip, *port);
@@ -1139,7 +1160,7 @@ STATIC int wlan_socket_accept(mod_network_socket_obj_t *s, mod_network_socket_ob
     return 0;
 }
 
-STATIC int wlan_socket_connect(mod_network_socket_obj_t *s, byte *ip, mp_uint_t port, int *_errno) {
+int wlan_socket_connect(mod_network_socket_obj_t *s, byte *ip, mp_uint_t port, int *_errno) {
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_Connect(s->sd, &addr, sizeof(addr));
     if (ret != 0) {
@@ -1149,7 +1170,7 @@ STATIC int wlan_socket_connect(mod_network_socket_obj_t *s, byte *ip, mp_uint_t 
     return 0;
 }
 
-STATIC int wlan_socket_send(mod_network_socket_obj_t *s, const byte *buf, mp_uint_t len, int *_errno) {
+int wlan_socket_send(mod_network_socket_obj_t *s, const byte *buf, mp_uint_t len, int *_errno) {
     mp_int_t bytes = 0;
     if (len > 0) {
         bytes = sl_Send(s->sd, (const void *)buf, len, 0);
@@ -1162,7 +1183,7 @@ STATIC int wlan_socket_send(mod_network_socket_obj_t *s, const byte *buf, mp_uin
     return bytes;
 }
 
-STATIC int wlan_socket_recv(mod_network_socket_obj_t *s, byte *buf, mp_uint_t len, int *_errno) {
+int wlan_socket_recv(mod_network_socket_obj_t *s, byte *buf, mp_uint_t len, int *_errno) {
     // check if the socket is open
     if (s->closed) {
         // socket is closed, but the there might be data remaining in the buffer, so check
@@ -1193,7 +1214,7 @@ STATIC int wlan_socket_recv(mod_network_socket_obj_t *s, byte *buf, mp_uint_t le
     return ret;
 }
 
-STATIC int wlan_socket_sendto( mod_network_socket_obj_t *s, const byte *buf, mp_uint_t len, byte *ip, mp_uint_t port, int *_errno) {
+int wlan_socket_sendto( mod_network_socket_obj_t *s, const byte *buf, mp_uint_t len, byte *ip, mp_uint_t port, int *_errno) {
     MAKE_SOCKADDR(addr, ip, port)
     int ret = sl_SendTo(s->sd, (byte*)buf, len, 0, (sockaddr*)&addr, sizeof(addr));
     if (ret < 0) {
@@ -1203,7 +1224,7 @@ STATIC int wlan_socket_sendto( mod_network_socket_obj_t *s, const byte *buf, mp_
     return ret;
 }
 
-STATIC int wlan_socket_recvfrom(mod_network_socket_obj_t *s, byte *buf, mp_uint_t len, byte *ip, mp_uint_t *port, int *_errno) {
+int wlan_socket_recvfrom(mod_network_socket_obj_t *s, byte *buf, mp_uint_t len, byte *ip, mp_uint_t *port, int *_errno) {
     sockaddr addr;
     socklen_t addr_len = sizeof(addr);
     mp_int_t ret = sl_RecvFrom(s->sd, buf, len, 0, &addr, &addr_len);
@@ -1215,7 +1236,7 @@ STATIC int wlan_socket_recvfrom(mod_network_socket_obj_t *s, byte *buf, mp_uint_
     return ret;
 }
 
-STATIC int wlan_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t level, mp_uint_t opt, const void *optval, mp_uint_t optlen, int *_errno) {
+int wlan_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t level, mp_uint_t opt, const void *optval, mp_uint_t optlen, int *_errno) {
     int ret = sl_SetSockOpt(socket->sd, level, opt, optval, optlen);
     if (ret < 0) {
         *_errno = ret;
@@ -1224,7 +1245,7 @@ STATIC int wlan_socket_setsockopt(mod_network_socket_obj_t *socket, mp_uint_t le
     return 0;
 }
 
-STATIC int wlan_socket_settimeout(mod_network_socket_obj_t *s, mp_uint_t timeout_ms, int *_errno) {
+int wlan_socket_settimeout(mod_network_socket_obj_t *s, mp_uint_t timeout_ms, int *_errno) {
     int ret;
     if (timeout_ms == 0 || timeout_ms == -1) {
         int optval;
@@ -1249,7 +1270,7 @@ STATIC int wlan_socket_settimeout(mod_network_socket_obj_t *s, mp_uint_t timeout
     return 0;
 }
 
-STATIC int wlan_socket_ioctl (mod_network_socket_obj_t *s, mp_uint_t request, mp_uint_t arg, int *_errno) {
+int wlan_socket_ioctl (mod_network_socket_obj_t *s, mp_uint_t request, mp_uint_t arg, int *_errno) {
     mp_int_t ret;
     if (request == MP_IOCTL_POLL) {
         mp_uint_t flags = arg;
@@ -1308,25 +1329,3 @@ STATIC int wlan_socket_ioctl (mod_network_socket_obj_t *s, mp_uint_t request, mp
     return ret;
 }
 
-const mod_network_nic_type_t mod_network_nic_type_wlan = {
-    .base = {
-        { &mp_type_type },
-        .name = MP_QSTR_WLAN,
-        .make_new = wlan_make_new,
-        .locals_dict = (mp_obj_t)&wlan_locals_dict,
-    },
-    .gethostbyname = wlan_gethostbyname,
-    .socket = wlan_socket_socket,
-    .close = wlan_socket_close,
-    .bind = wlan_socket_bind,
-    .listen = wlan_socket_listen,
-    .accept = wlan_socket_accept,
-    .connect = wlan_socket_connect,
-    .send = wlan_socket_send,
-    .recv = wlan_socket_recv,
-    .sendto = wlan_socket_sendto,
-    .recvfrom = wlan_socket_recvfrom,
-    .setsockopt = wlan_socket_setsockopt,
-    .settimeout = wlan_socket_settimeout,
-    .ioctl = wlan_socket_ioctl,
-};

@@ -45,6 +45,7 @@
 #include "pybsleep.h"
 #include "pybpin.h"
 #include "simplelink.h"
+#include "modnetwork.h"
 #include "modwlan.h"
 #include "osi.h"
 #include "debug.h"
@@ -124,7 +125,7 @@ STATIC nvic_reg_store_t    *nvic_reg_store;
 STATIC pybsleep_data_t   pybsleep_data = {NULL, NULL, NULL, 0};
 volatile arm_cm4_core_regs_t vault_arm_registers;
 STATIC pybsleep_reset_cause_t pybsleep_reset_cause = PYB_SLP_PWRON_RESET;
-STATIC pybsleep_reset_cause_t pybsleep_wake_reason = PYB_SLP_WAKED_PWRON;
+STATIC pybsleep_wake_reason_t pybsleep_wake_reason = PYB_SLP_WAKED_PWRON;
 
 /******************************************************************************
  DECLARE PRIVATE FUNCTIONS

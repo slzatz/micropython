@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2015 Daniel Campora
+ * Copyright (c) 2015 Damien P. George
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,16 +24,16 @@
  * THE SOFTWARE.
  */
 
-#ifndef FTP_H_
-#define FTP_H_
+#ifndef CHAR_CTRL_C
+#define CHAR_CTRL_C (3)
+#endif
 
-/******************************************************************************
- DECLARE EXPORTED FUNCTIONS
- ******************************************************************************/
-extern void ftp_init (void);
-extern void ftp_run (void);
-extern void ftp_enable (void);
-extern void ftp_disable (void);
-extern void ftp_reset (void);
+void mp_hal_set_interrupt_char(char c);
 
-#endif /* FTP_H_ */
+void mp_hal_stdio_mode_raw(void);
+void mp_hal_stdio_mode_orig(void);
+
+int mp_hal_stdin_rx_chr(void);
+void mp_hal_stdout_tx_str(const char *str);
+void mp_hal_stdout_tx_strn(const char *str, mp_uint_t len);
+void mp_hal_stdout_tx_strn_cooked(const char *str, mp_uint_t len);
