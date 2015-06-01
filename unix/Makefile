@@ -101,6 +101,7 @@ SRC_C = \
 	modos.c \
 	alloc.c \
 	coverage.c \
+    hello.c \
 	$(SRC_MOD)
 
 LIB_SRC_C = $(addprefix lib/,\
