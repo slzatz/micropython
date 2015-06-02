@@ -37,6 +37,7 @@
 #include "inc/hw_ints.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_uart.h"
+#include "rom_map.h"
 #include "prcm.h"
 #include "pyexec.h"
 #include "pybuart.h"
@@ -44,6 +45,7 @@
 #include "pybrtc.h"
 #include "mpsystick.h"
 #include "simplelink.h"
+#include "modnetwork.h"
 #include "modwlan.h"
 #include "moduos.h"
 #include "telnet.h"
@@ -86,8 +88,8 @@ extern OsiTaskHandle    xSimpleLinkSpawnTaskHndl;
 STATIC mp_obj_t pyb_hard_reset(void) {
     // disable wlan
     wlan_stop(SL_STOP_TIMEOUT_LONG);
-    // perform a SoC reset
-    PRCMSOCReset();
+    // reset the cpu and it's peripherals
+    MAP_PRCMMCUReset(true);
     return mp_const_none;
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(pyb_hard_reset_obj, pyb_hard_reset);
@@ -127,6 +129,15 @@ STATIC mp_obj_t pyb_freq(void) {
     return mp_obj_new_int(HAL_FCPU_HZ);
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(pyb_freq_obj, pyb_freq);
+
+/// \function unique_id()
+/// Returns a string of 6 bytes (48 bits), which is the unique ID for the MCU.
+STATIC mp_obj_t pyb_unique_id(void) {
+    uint8_t mac[SL_BSSID_LENGTH];
+    wlan_get_mac (mac);
+    return mp_obj_new_bytes(mac, SL_BSSID_LENGTH);
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(pyb_unique_id_obj, pyb_unique_id);
 
 /// \function millis()
 /// Returns the number of milliseconds since the board was last reset.
@@ -239,11 +250,12 @@ MP_DECLARE_CONST_FUN_OBJ(pyb_main_obj); // defined in main.c
 STATIC const mp_map_elem_t pyb_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__),            MP_OBJ_NEW_QSTR(MP_QSTR_pyb) },
 
-    { MP_OBJ_NEW_QSTR(MP_QSTR_reset),               (mp_obj_t)&pyb_hard_reset_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_hard_reset),          (mp_obj_t)&pyb_hard_reset_obj },
 #ifdef DEBUG
     { MP_OBJ_NEW_QSTR(MP_QSTR_info),                (mp_obj_t)&pyb_info_obj },
 #endif
     { MP_OBJ_NEW_QSTR(MP_QSTR_freq),                (mp_obj_t)&pyb_freq_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_unique_id),           (mp_obj_t)&pyb_unique_id_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_repl_info),           (mp_obj_t)&pyb_set_repl_info_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_repl_uart),           (mp_obj_t)&pyb_repl_uart_obj },
 
@@ -264,7 +276,7 @@ STATIC const mp_map_elem_t pyb_module_globals_table[] = {
 #endif
 
 #if MICROPY_HW_ENABLE_RTC
-    { MP_OBJ_NEW_QSTR(MP_QSTR_RTC),                 (mp_obj_t)&pyb_rtc_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_RTC),                 (mp_obj_t)&pyb_rtc_type },
 #endif
 
     { MP_OBJ_NEW_QSTR(MP_QSTR_Pin),                 (mp_obj_t)&pin_type },
@@ -273,7 +285,7 @@ STATIC const mp_map_elem_t pyb_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_SPI),                 (mp_obj_t)&pyb_spi_type },
     { MP_OBJ_NEW_QSTR(MP_QSTR_UART),                (mp_obj_t)&pyb_uart_type },
     { MP_OBJ_NEW_QSTR(MP_QSTR_Timer),               (mp_obj_t)&pyb_timer_type },
-    { MP_OBJ_NEW_QSTR(MP_QSTR_WDT),                 (mp_obj_t)&pyb_wdt_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_WDT),                 (mp_obj_t)&pyb_wdt_type },
     { MP_OBJ_NEW_QSTR(MP_QSTR_Sleep),               (mp_obj_t)&pyb_sleep_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_HeartBeat),           (mp_obj_t)&pyb_heartbeat_obj },
 

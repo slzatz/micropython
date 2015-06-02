@@ -60,7 +60,14 @@ STATIC char *str_dup_maybe(const char *str) {
     return s2;
 }
 
-STATIC void move_cursor_back(uint pos) {
+// By default assume terminal which implements VT100 commands...
+#ifndef MICROPY_HAL_HAS_VT100
+#define MICROPY_HAL_HAS_VT100 (1)
+#endif
+
+// ...and provide the implementation using them
+#if MICROPY_HAL_HAS_VT100
+STATIC void mp_hal_move_cursor_back(uint pos) {
     if (pos <= 4) {
         // fast path for most common case of 1 step back
         mp_hal_stdout_tx_strn("\b\b\b\b", pos);
@@ -75,16 +82,17 @@ STATIC void move_cursor_back(uint pos) {
     }
 }
 
-STATIC void erase_line_from_cursor(void) {
+STATIC void mp_hal_erase_line_from_cursor(void) {
     mp_hal_stdout_tx_strn("\x1b[K", 3);
 }
+#endif
 
 typedef struct _readline_t {
     vstr_t *line;
-    int orig_line_len;
+    size_t orig_line_len;
     int escape_seq;
     int hist_cur;
-    int cursor_pos;
+    size_t cursor_pos;
     char escape_seq_buf[1];
     const char *prompt;
 } readline_t;
@@ -92,7 +100,7 @@ typedef struct _readline_t {
 STATIC readline_t rl;
 
 int readline_process_char(int c) {
-    int last_line_len = rl.line->len;
+    size_t last_line_len = rl.line->len;
     int redraw_step_back = 0;
     bool redraw_from_cursor = false;
     int redraw_step_forward = 0;
@@ -112,17 +120,7 @@ int readline_process_char(int c) {
         } else if (c == '\r') {
             // newline
             mp_hal_stdout_tx_str("\r\n");
-            if (rl.line->len > rl.orig_line_len && (MP_STATE_PORT(readline_hist)[0] == NULL || strcmp(MP_STATE_PORT(readline_hist)[0], rl.line->buf + rl.orig_line_len) != 0)) {
-                // a line which is not empty and different from the last one
-                // so update the history
-                char *most_recent_hist = str_dup_maybe(vstr_null_terminated_str(rl.line) + rl.orig_line_len);
-                if (most_recent_hist != NULL) {
-                    for (int i = READLINE_HIST_SIZE - 1; i > 0; i--) {
-                        MP_STATE_PORT(readline_hist)[i] = MP_STATE_PORT(readline_hist)[i - 1];
-                    }
-                    MP_STATE_PORT(readline_hist)[0] = most_recent_hist;
-                }
-            }
+            readline_push_history(vstr_null_terminated_str(rl.line) + rl.orig_line_len);
             return 0;
         } else if (c == 27) {
             // escape sequence
@@ -149,7 +147,7 @@ int readline_process_char(int c) {
                 redraw_from_cursor = true;
             } else {
                 // one match
-                for (int i = 0; i < compl_len; ++i) {
+                for (mp_uint_t i = 0; i < compl_len; ++i) {
                     vstr_ins_byte(rl.line, rl.cursor_pos + i, *compl_str++);
                 }
                 // set redraw parameters
@@ -184,7 +182,7 @@ int readline_process_char(int c) {
             rl.escape_seq = ESEQ_NONE;
             if (c == 'A') {
                 // up arrow
-                if (rl.hist_cur + 1 < READLINE_HIST_SIZE && MP_STATE_PORT(readline_hist)[rl.hist_cur + 1] != NULL) {
+                if (rl.hist_cur + 1 < (int)READLINE_HIST_SIZE && MP_STATE_PORT(readline_hist)[rl.hist_cur + 1] != NULL) {
                     // increase hist num
                     rl.hist_cur += 1;
                     // set line to history
@@ -238,6 +236,12 @@ home_key:
             } else if (rl.escape_seq_buf[0] == '4' || rl.escape_seq_buf[0] == '8') {
 end_key:
                 redraw_step_forward = rl.line->len - rl.cursor_pos;
+            } else if (rl.escape_seq_buf[0] == '3') {
+                // delete
+                if (rl.cursor_pos >= rl.orig_line_len && rl.cursor_pos < rl.line->len) {
+                    vstr_cut_out_bytes(rl.line, rl.cursor_pos, 1);
+                    redraw_from_cursor = true;
+                }
             } else {
                 DEBUG_printf("(ESC [ %c %d)", rl.escape_seq_buf[0], c);
             }
@@ -261,19 +265,19 @@ end_key:
 
     // redraw command prompt, efficiently
     if (redraw_step_back > 0) {
-        move_cursor_back(redraw_step_back);
+        mp_hal_move_cursor_back(redraw_step_back);
         rl.cursor_pos -= redraw_step_back;
     }
     if (redraw_from_cursor) {
         if (rl.line->len < last_line_len) {
             // erase old chars
             // (number of chars to erase: last_line_len - rl.cursor_pos)
-            erase_line_from_cursor();
+            mp_hal_erase_line_from_cursor();
         }
         // draw new chars
         mp_hal_stdout_tx_strn(rl.line->buf + rl.cursor_pos, rl.line->len - rl.cursor_pos);
         // move cursor forward if needed (already moved forward by length of line, so move it back)
-        move_cursor_back(rl.line->len - (rl.cursor_pos + redraw_step_forward));
+        mp_hal_move_cursor_back(rl.line->len - (rl.cursor_pos + redraw_step_forward));
         rl.cursor_pos += redraw_step_forward;
     } else if (redraw_step_forward > 0) {
         // draw over old chars to move cursor forwards
@@ -309,6 +313,22 @@ int readline(vstr_t *line, const char *prompt) {
         int r = readline_process_char(c);
         if (r >= 0) {
             return r;
+        }
+    }
+}
+
+void readline_push_history(const char *line) {
+    if (line[0] != '\0'
+        && (MP_STATE_PORT(readline_hist)[0] == NULL
+            || strcmp(MP_STATE_PORT(readline_hist)[0], line) != 0)) {
+        // a line which is not empty and different from the last one
+        // so update the history
+        char *most_recent_hist = str_dup_maybe(line);
+        if (most_recent_hist != NULL) {
+            for (int i = READLINE_HIST_SIZE - 1; i > 0; i--) {
+                MP_STATE_PORT(readline_hist)[i] = MP_STATE_PORT(readline_hist)[i - 1];
+            }
+            MP_STATE_PORT(readline_hist)[0] = most_recent_hist;
         }
     }
 }

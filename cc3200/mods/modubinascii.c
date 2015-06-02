@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2014 Paul Sokolovsky
  * Copyright (c) 2015 Daniel Campora
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,27 +25,38 @@
  * THE SOFTWARE.
  */
 
-#define WIPY_SD
+#include "py/mpconfig.h"
+#include MICROPY_HAL_H
+#include "py/nlr.h"
+#include "py/runtime.h"
+#include "py/binary.h"
+#include "extmod/modubinascii.h"
+#include "modubinascii.h"
+#include "inc/hw_types.h"
+#include "inc/hw_ints.h"
+#include "inc/hw_nvic.h"
+#include "inc/hw_dthe.h"
+#include "hw_memmap.h"
+#include "rom_map.h"
+#include "prcm.h"
+#include "crc.h"
+#include "cryptohash.h"
+#include "mpexception.h"
 
-#define MICROPY_HW_BOARD_NAME                       "WiPy-SD"
-#define MICROPY_HW_MCU_NAME                         "CC3200"
 
-#define MICROPY_HW_HAS_SDCARD                       (1)
-#define MICROPY_HW_ENABLE_RNG                       (1)
-#define MICROPY_HW_ENABLE_RTC                       (1)
+/******************************************************************************/
+// Micro Python bindings
 
-#define MICROPY_STDIO_UART                          PYB_UART_0
-#define MICROPY_STDIO_UART_BAUD                     115200
-#define MICROPY_STDIO_UART_RX_BUF_SIZE              128
+STATIC const mp_map_elem_t mp_module_binascii_globals_table[] = {
+    { MP_OBJ_NEW_QSTR(MP_QSTR___name__),        MP_OBJ_NEW_QSTR(MP_QSTR_ubinascii) },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_hexlify),         (mp_obj_t)&mod_binascii_hexlify_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_unhexlify),       (mp_obj_t)&mod_binascii_unhexlify_obj },
+};
 
-#define MICROPY_SYS_LED_PRCM                        PRCM_GPIOA3
-#define MICROPY_SAFE_BOOT_PRCM                      PRCM_GPIOA3
-#define MICROPY_SYS_LED_PORT                        GPIOA3_BASE
-#define MICROPY_SAFE_BOOT_PORT                      GPIOA3_BASE
-#define MICROPY_SYS_LED_GPIO                        pin_GPIO25
-#define MICROPY_SYS_LED_PIN_NUM                     PIN_21      // GPIO25   (SOP2)
-#define MICROPY_SAFE_BOOT_PIN_NUM                   PIN_18      // GPIO28
-#define MICROPY_SYS_LED_PORT_PIN                    GPIO_PIN_1
-#define MICROPY_SAFE_BOOT_PORT_PIN                  GPIO_PIN_4
+STATIC MP_DEFINE_CONST_DICT(mp_module_binascii_globals, mp_module_binascii_globals_table);
 
-#define MICROPY_PORT_SFLASH_BLOCK_COUNT             96
+const mp_obj_module_t mp_module_ubinascii = {
+    .base = { &mp_type_module },
+    .name = MP_QSTR_ubinascii,
+    .globals = (mp_obj_dict_t*)&mp_module_binascii_globals,
+};
