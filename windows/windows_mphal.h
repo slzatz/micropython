@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2015 Daniel Campora
+ * Copyright (c) 2015 Damien P. George
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,16 +24,9 @@
  * THE SOFTWARE.
  */
 
-#ifndef PYBWDT_H_
-#define PYBWDT_H_
+#include "unix/unix_mphal.h"
 
-#include "py/obj.h"
+#define MICROPY_HAL_HAS_VT100 (0)
 
-extern const mp_obj_type_t pyb_wdt_type;
-
-void pybwdt_init0 (void);
-void pybwdt_srv_alive (void);
-void pybwdt_srv_sleeping (bool state);
-void pybwdt_sl_alive (void);
-
-#endif /* PYBWDT_H_ */
+void mp_hal_move_cursor_back(unsigned int pos);
+void mp_hal_erase_line_from_cursor();
