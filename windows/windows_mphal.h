@@ -3,8 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
- * Copyright (c) 2015 Daniel Campora
+ * Copyright (c) 2015 Damien P. George
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,24 +24,9 @@
  * THE SOFTWARE.
  */
 
-#define WIPY
+#include "unix/unix_mphal.h"
 
-#define MICROPY_HW_BOARD_NAME                       "WiPy"
-#define MICROPY_HW_MCU_NAME                         "CC3200"
+#define MICROPY_HAL_HAS_VT100 (0)
 
-#define MICROPY_HW_HAS_SDCARD                       (1)
-#define MICROPY_HW_ENABLE_RNG                       (1)
-#define MICROPY_HW_ENABLE_RTC                       (1)
-#define MICROPY_HW_ANTENNA_DIVERSITY                (1)
-
-#define MICROPY_SYS_LED_PRCM                        PRCM_GPIOA3
-#define MICROPY_SAFE_BOOT_PRCM                      PRCM_GPIOA3
-#define MICROPY_SYS_LED_PORT                        GPIOA3_BASE
-#define MICROPY_SAFE_BOOT_PORT                      GPIOA3_BASE
-#define MICROPY_SYS_LED_GPIO                        pin_GPIO25
-#define MICROPY_SYS_LED_PIN_NUM                     PIN_21      // GPIO25   (SOP2)
-#define MICROPY_SAFE_BOOT_PIN_NUM                   PIN_18      // GPIO28
-#define MICROPY_SYS_LED_PORT_PIN                    GPIO_PIN_1
-#define MICROPY_SAFE_BOOT_PORT_PIN                  GPIO_PIN_4
-
-#define MICROPY_PORT_SFLASH_BLOCK_COUNT             96
+void mp_hal_move_cursor_back(unsigned int pos);
+void mp_hal_erase_line_from_cursor();

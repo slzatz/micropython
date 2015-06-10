@@ -237,10 +237,9 @@ Q(IPPROTO_RAW)
 
 // for network class
 Q(network)
-Q(start_server)
-Q(stop_server)
 Q(server_running)
 Q(server_login)
+Q(server_timeout)
 
 // for WLAN class
 Q(WLAN)
@@ -264,6 +263,7 @@ Q(subnet)
 Q(gateway)
 Q(dns)
 Q(mac)
+Q(antenna)
 Q(STA)
 Q(AP)
 Q(P2P)
@@ -273,6 +273,8 @@ Q(WPA_WPA2)
 Q(WPA_ENT)
 Q(WPS_PBC)
 Q(WPS_PIN)
+Q(INT_ANTENNA)
+Q(EXT_ANTENNA)
 
 // for WDT class
 Q(WDT)
