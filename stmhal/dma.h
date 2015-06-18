@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Damien P. George
+ * Copyright (c) 2015 Damien P. George
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,111 +24,6 @@
  * THE SOFTWARE.
  */
 
-// qstrs specific to this port
-
-Q(help)
-
-// pyb module
-Q(pyb)
-Q(info)
-Q(freq)
-Q(millis)
-Q(elapsed_millis)
-Q(micros)
-Q(elapsed_micros)
-Q(delay)
-Q(udelay)
-Q(sync)
-Q(hard_reset)
-Q(unique_id)
-
-// uos module
-Q(uos)
-Q(os)
-Q(uname)
-Q(sysname)
-Q(nodename)
-Q(release)
-Q(version)
-Q(machine)
-
-Q(esp)
-Q(socket)
-Q(connect)
-Q(disconnect)
-Q(scan)
-Q(status)
-Q(phy_mode)
-Q(sleep_type)
-Q(deepsleep)
-Q(adc)
-Q(vdd33)
-Q(chip_id)
-Q(flash_id)
-Q(sdk_version)
-Q(mac)
-Q(getaddrinfo)
-Q(send)
-Q(sendto)
-Q(recv)
-Q(recvfrom)
-Q(listen)
-Q(accept)
-Q(bind)
-Q(settimeout)
-Q(setblocking)
-Q(setsockopt)
-Q(close)
-Q(protocol)
-Q(getpeername)
-Q(onconnect)
-Q(onrecv)
-Q(onsent)
-Q(ondisconnect)
-Q(STAT_IDLE)
-Q(STAT_CONNECTING)
-Q(STAT_WRONG_PASSWORD)
-Q(STAT_NO_AP_FOUND)
-Q(STAT_CONNECT_FAIL)
-Q(STAT_GOT_IP)
-Q(MODE_11B)
-Q(MODE_11G)
-Q(MODE_11N)
-Q(SLEEP_NONE)
-Q(SLEEP_LIGHT)
-Q(SLEEP_MODEM)
-
-// network module
-Q(network)
-Q(WLAN)
-
-// Pin class
-Q(Pin)
-Q(init)
-Q(mode)
-Q(pull)
-Q(value)
-Q(low)
-Q(high)
-Q(IN)
-Q(OUT_PP)
-Q(OUT_OD)
-Q(PULL_NONE)
-Q(PULL_UP)
-Q(PULL_DOWN)
-
-// RTC
-Q(RTC)
-Q(datetime)
-Q(memory)
-
-// ADC
-Q(ADC)
-Q(read)
-
-// utime
-Q(utime)
-Q(localtime)
-Q(mktime)
-Q(sleep)
-Q(time)
+void dma_init(DMA_HandleTypeDef *dma, DMA_Stream_TypeDef *dma_stream, uint32_t dma_channel, uint32_t direction, void *data);
+void dma_deinit(DMA_HandleTypeDef *dma);
+void dma_invalidate_channel(DMA_Stream_TypeDef *dma_stream, uint32_t dma_channel);
